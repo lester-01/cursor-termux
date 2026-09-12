@@ -1,0 +1,15 @@
+# Temp / build artifacts
+tmp/
+*.tar.gz
+*.bak
+
+# Version dirs (downloaded by install.sh)
+versions/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
