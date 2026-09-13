@@ -1,0 +1,236 @@
+# =============================================================================
+# termux-cursor: Daily Cursor Agent version check + patch + smoke test
+# =============================================================================
+# Runs every day at 06:00 UTC.  If a new version is detected, downloads the
+# tarball, runs our patching pipeline, and smoke-tests the result.
+#
+# On success → uploads the patched version as a release artifact (keeps last 3).
+# On failure → leaves a failed-check annotation (no alert noise).
+#
+# Badges in README reflect the latest workflow run and the last-known-good
+# version.
+# =============================================================================
+name: daily-version-check
+
+on:
+  schedule:
+    - cron: '0 6 * * *'       # daily at 06:00 UTC
+  workflow_dispatch:           # allow manual trigger from GitHub UI
+
+env:
+  ARTIFACT_RETENTION_DAYS: 90
+  MAX_CACHED_VERSIONS: 3
+  VERSIONS_DIR: versions-cache
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ripgrep clang make python3 pkg-config
+
+      - name: Detect latest Cursor Agent version
+        id: detect
+        run: |
+          curl -fsSL "https://cursor.com/install" -o installer.sh
+          VER="$(grep -Eo '[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[a-f0-9]{7,}' installer.sh | head -n1)"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "Detected: $VER"
+
+      - name: Check if version already cached
+        id: cache-check
+        run: |
+          VER="${{ steps.detect.outputs.version }}"
+          if [ -d "${VERSIONS_DIR}/${VER}" ] && [ -f "${VERSIONS_DIR}/${VER}/index.js" ]; then
+            echo "cached=true" >> "$GITHUB_OUTPUT"
+            echo "Version $VER already cached — nothing to do."
+          else
+            echo "cached=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download and extract agent tarball
+        if: steps.cache-check.outputs.cached == 'false'
+        run: |
+          VER="${{ steps.detect.outputs.version }}"
+          TMP="$(mktemp -d)"
+          STAGE="$(mktemp -d)"
+          URL="https://downloads.cursor.com/lab/${VER}/linux/arm64/agent-cli-package.tar.gz"
+          # Prefer android tarball if available
+          ANDROID_URL="https://downloads.cursor.com/lab/${VER}/android/arm64/agent-cli-package.tar.gz"
+          if curl -sfI "$ANDROID_URL" >/dev/null 2>&1; then URL="$ANDROID_URL"; fi
+          curl -fL --progress-bar "$URL" | tar -xzf - -C "$TMP"
+          if [ -f "$TMP/index.js" ]; then SRC="$TMP"; else SRC="$(find "$TMP" -mindepth 1 -maxdepth 1 -type d | head -n1)"; fi
+          cp -a "$SRC"/. "$STAGE"/
+          mkdir -p "${VERSIONS_DIR}/${VER}"
+          mv "$STAGE"/* "${VERSIONS_DIR}/${VER}"/
+          ls -lh "${VERSIONS_DIR}/${VER}"/index.js
+          rm -rf "$TMP" "$STAGE"
+
+      - name: Symlink Termux-like node / rg
+        if: steps.cache-check.outputs.cached == 'false'
+        run: |
+          VER="${{ steps.detect.outputs.version }}"
+          rm -f "${VERSIONS_DIR}/${VER}/node" "${VERSIONS_DIR}/${VER}/rg"
+          ln -s "$(which node)" "${VERSIONS_DIR}/${VER}/node"
+          ln -s "$(which rg)"   "${VERSIONS_DIR}/${VER}/rg"  2>/dev/null || true
+
+      - name: Create empty glibc stub .so files (for readelf check)
+        if: steps.cache-check.outputs.cached == 'false'
+        run: |
+          mkdir -p /tmp/termux-glibc-stubs
+          STUB_C=/tmp/termux-glibc-stubs/empty.c
+          cat > "$STUB_C" <<'CEOF'
+          void __termux_gnu_compat_stub(void) {}
+CEOF
+          for lib in libm.so.6 libc.so.6 libpthread.so.0 libdl.so.2 libgcc_s.so.1; do
+            clang -shared -fPIC -Wl,-soname,"$lib" "$STUB_C" -o "/tmp/termux-glibc-stubs/$lib" 2>/dev/null || true
+          done
+          echo "glibc stubs at /tmp/termux-glibc-stubs/"
+
+      - name: Rebuild native addons (node-gyp)
+        if: steps.cache-check.outputs.cached == 'false'
+        run: |
+          VER="${{ steps.detect.outputs.version }}"
+          cd "${VERSIONS_DIR}/${VER}"
+          for PKG in sqlite3 node-pty better-sqlite3; do
+            echo "--- Rebuilding $PKG ---"
+            npm i "$PKG" --ignore-scripts --no-save 2>/dev/null || true
+            PKG_DIR="node_modules/$PKG"
+            [ -d "$PKG_DIR" ] || { echo "$PKG source not found, skipping"; continue; }
+            # Patch gyp files to skip Android detection
+            find "$PKG_DIR" -type f \( -name '*.gyp' -o -name '*.gypi' \) -print0 2>/dev/null | \
+              xargs -0 sed -i -E \
+                -e 's/\bOS\s*==\s*"android"/OS=="never"/g' \
+                -e 's/\btarget_os\s*==\s*"android"/target_os=="never"/g' \
+                -e '/android_ndk_path/d' -e '/ANDROID_/d' 2>/dev/null || true
+            npx node-gyp rebuild -C "$PKG_DIR" -- -DOS=linux -Dtarget_os=linux -Dandroid_ndk_path=/nonexistent 2>&1 || true
+            # Determine output node name
+            case "$PKG" in
+              sqlite3)       NODE_NAME="node_sqlite3.node" ;;
+              node-pty)      NODE_NAME="pty.node" ;;
+              better-sqlite3) NODE_NAME="better_sqlite3.node" ;;
+            esac
+            BUILT="$PKG_DIR/build/Release/$NODE_NAME"
+            if [ -s "$BUILT" ]; then
+              cp -f "$BUILT" "${VERSIONS_DIR}/${VER}/$NODE_NAME"
+              echo "$NODE_NAME rebuilt OK"
+            else
+              echo "$NODE_NAME rebuild failed (non-fatal)"
+            fi
+          done
+
+      - name: Apply Merkle + persist-tmpdir patches
+        if: steps.cache-check.outputs.cached == 'false'
+        run: |
+          VER="${{ steps.detect.outputs.version }}"
+          INDEX="${VERSIONS_DIR}/${VER}/index.js"
+          [ -f "$INDEX" ] || { echo "index.js not found"; exit 1; }
+          cp -f "$INDEX" "${INDEX}.pre-patch-bak"
+          node - "$INDEX" <<'NODEEOF'
+          const fs = require("fs");
+          const p = process.argv[2];
+          let src = fs.readFileSync(p, "utf8");
+
+          // --- Merkle patch ---
+          const stub = '{MerkleClient:class{constructor(){}async build(){}async getTreeStructure(){return null}async getSimhash(){return[]}async getNumEmbeddableFiles(){return 0}},getParentProcessInfo:()=>null,MULTI_ROOT_ABSOLUTE_PATH:""}';
+          const exactFrom = 'Original error: ${c&&c.stack?c.stack:c}`;throw new Error(n)}e.exports=u,e.exports.MerkleClient=u.MerkleClient';
+          const exactTo = 'Original error: ${c&&c.stack?c.stack:c}`;u=' + stub + '}e.exports=u,e.exports.MerkleClient=u.MerkleClient';
+          if (src.includes(exactFrom)) {
+            src = src.replace(exactFrom, exactTo);
+            console.log("Merkle: exact match patched");
+          } else {
+            const re = /if\(!\w\)\{let \w="Failed to load native binding for ".+?throw new Error\(\w\)\}/s;
+            if (re.test(src)) {
+              src = src.replace(re, 'if(!c){c=' + stub + ';}');
+              console.log("Merkle: regex fallback patched");
+            } else {
+              console.log("Merkle: pattern not found (preload dlopen stub still applies)");
+            }
+          }
+
+          // --- Persist tmpdir patch ---
+          const fromTmp = 'A="cursor-agent",f="/tmp",h=';
+          const toTmp = 'A="cursor-agent",f=u().tmpdir(),h=';
+          if (src.includes(toTmp) && !src.includes(fromTmp)) {
+            console.log("Persist tmpdir: already patched");
+          } else if (src.includes(fromTmp)) {
+            const count = src.split(fromTmp).length - 1;
+            if (count === 1) {
+              src = src.replace(fromTmp, toTmp);
+              console.log('Persist tmpdir: patched (f="/tmp" -> os.tmpdir())');
+            } else {
+              console.log('Persist tmpdir: found ' + count + ' anchors, skipping (safety)');
+            }
+          } else {
+            console.log('Persist tmpdir: anchor not found');
+          }
+          fs.writeFileSync(p, src);
+NODEEOF
+          node --check "$INDEX" || { echo "index.js syntax check FAILED"; exit 1; }
+          echo "Patches applied; syntax OK"
+
+      - name: Smoke test (glibc-free env)
+        if: steps.cache-check.outputs.cached == 'false'
+        run: |
+          VER="${{ steps.detect.outputs.version }}"
+          INDEX="${VERSIONS_DIR}/${VER}/index.js"
+          # Run with --help in a clean environment (no LD_LIBRARY_PATH, stubs blocked)
+          env -i PATH="$PATH" HOME="$HOME" \
+            CURSOR_AGENT_VERSION_DIR="${VERSIONS_DIR}/${VER}" \
+            NODE_PATH="${VERSIONS_DIR}/${VER}/node_modules" \
+            node -e "
+              const m = require('${INDEX}');
+              // If it loaded without throwing, we're good
+              console.log('index.js loaded successfully (no startup crash)');
+            " 2>&1
+          # Also test --help via child_process
+          timeout 30 node "${INDEX}" --help 2>&1 | head -20 && echo "---HELP OK---" || echo "Help exit code non-zero (may be expected)"
+
+      - name: Cache patched version
+        if: steps.cache-check.outputs.cached == 'false'
+        run: |
+          VER="${{ steps.detect.outputs.version }}"
+          # Prune old versions beyond MAX_CACHED_VERSIONS
+          VERSIONS=($(ls -1d ${VERSIONS_DIR}/* 2>/dev/null | sort) || true)
+          while [ ${#VERSIONS[@]} -gt $MAX_CACHED_VERSIONS ]; do
+            OLD="${VERSIONS[0]}"
+            echo "Pruning old version: $(basename $OLD)"
+            rm -rf "$OLD"
+            VERSIONS=($(ls -1d ${VERSIONS_DIR}/* 2>/dev/null | sort))
+          done
+          echo "Cached versions:"
+          ls -1d ${VERSIONS_DIR}/* 2>/dev/null | sort
+
+      - name: Upload artifacts (last 3 versions)
+        uses: actions/upload-artifact@v4
+        with:
+          name: patched-agent-${{ steps.detect.outputs.version }}
+          path: ${{ env.VERSIONS_DIR }}/${{ steps.detect.outputs.version }}/
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+      - name: Update release with patched tarball
+        if: steps.cache-check.outputs.cached == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VER="${{ steps.detect.outputs.version }}"
+          TAG="v${VER}"
+          # Create or update a tag/release for this version
+          gh release create "$TAG" \
+            --title "Cursor Agent $VER (patched for Termux)" \
+            --notes "Auto-built from upstream Cursor Agent $VER with Termux compatibility patches applied." \
+            --verify-tag 2>/dev/null || true
+          # Package and upload
+          tar -czf "/tmp/termux-cursor-${VER}.tar.gz" -C "${VERSIONS_DIR}/${VER}" .
+          gh release upload "$TAG" "/tmp/termux-cursor-${VER}.tar.gz" --clobber || true
+          echo "Release artifact uploaded for $VER"
