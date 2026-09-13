@@ -1,5 +1,5 @@
 # =============================================================================
-# termux-cursor: Daily Cursor Agent version check + host-side experiment
+# cursor-termux: Daily Cursor Agent version check + host-side experiment
 # =============================================================================
 # Runs daily at 06:00 UTC (and on workflow_dispatch).
 #
@@ -233,6 +233,6 @@ NODEEOF
             --notes "Auto-built from upstream Cursor Agent $VER with Termux compatibility patches applied." \
             --verify-tag 2>/dev/null || true
           # Package and upload
-          tar -czf "/tmp/termux-cursor-${VER}.tar.gz" -C "${VERSIONS_DIR}/${VER}" .
-          gh release upload "$TAG" "/tmp/termux-cursor-${VER}.tar.gz" --clobber || true
+          tar -czf "/tmp/cursor-termux-${VER}.tar.gz" -C "${VERSIONS_DIR}/${VER}" .
+          gh release upload "$TAG" "/tmp/cursor-termux-${VER}.tar.gz" --clobber || true
           echo "Release artifact uploaded for $VER"

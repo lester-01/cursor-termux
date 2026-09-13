@@ -56,7 +56,7 @@ pkg list-installed 2>/dev/null | grep -E 'nodejs|ripgrep|clang|make|python|binut
 
 ## Which version of this repo are you using?
 
-<!-- Run: git -C ~/projects/termux-cursor log --oneline -1 -->
+<!-- Run: git -C ~/projects/cursor-termux log --oneline -1 -->
 ```
 <commit hash here>
 ```
@@ -75,7 +75,7 @@ pkg list-installed 2>/dev/null | grep -E 'nodejs|ripgrep|clang|make|python|binut
 ls -la ~/.local/bin/cursor-agent ~/.local/bin/agent 2>&1
 
 # Check preload matches repo
-cmp -s ~/projects/termux-cursor/lib/termux-preload.js ~/.local/share/cursor-agent/termux-preload.js 2>&1
+cmp -s ~/projects/cursor-termux/lib/termux-preload.js ~/.local/share/cursor-agent/termux-preload.js 2>&1
 
 # Check persist tmpdir patch applied
 rg -n 'tmpdir\(\)' ~/.local/share/cursor-agent/versions/*/index.js 2>/dev/null | head -5

@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# termux-cursor: Reapply patches after `cursor-agent update`
+# cursor-termux: Reapply patches after `cursor-agent update`
 # Usage: bash scripts/apply-patches.sh
 set -euo pipefail
 
@@ -62,7 +62,7 @@ swap_binaries() {
 install_glibc_stubs() {
   step "Creating glibc compatibility shims..."
   mkdir -p "$PREFIX/lib"
-  local stub_c="$HOME/.cache/termux-cursor/empty-gnu-compat.c"
+  local stub_c="$HOME/.cache/cursor-termux/empty-gnu-compat.c"
   mkdir -p "$(dirname "$stub_c")"
   [[ -f "$stub_c" ]] || cat > "$stub_c" <<'C'
 void __termux_gnu_compat_stub(void) {}

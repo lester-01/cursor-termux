@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # =============================================================================
-# termux-cursor — fresh install playbook (manual)
+# cursor-termux — fresh install playbook (manual)
 # =============================================================================
 # This is NOT an automated installer. Read it, then run the commands yourself
 # (copy/paste block by block). If something breaks, point another LLM at this
@@ -19,7 +19,7 @@
 set -euo pipefail
 
 # --- 0) Where you are --------------------------------------------------------
-# cd ~/projects/termux-cursor
+# cd ~/projects/cursor-termux
 
 # --- 1) Backup chats + login -------------------------------------------------
 # mkdir -p ~/backups

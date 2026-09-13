@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# termux-cursor: Install Cursor Agent CLI natively on Termux (Android ARM64)
+# cursor-termux: Install Cursor Agent CLI natively on Termux (Android ARM64)
 # Usage: bash scripts/install.sh
 set -euo pipefail
 
@@ -142,7 +142,7 @@ swap_binaries() {
 install_glibc_stubs() {
   step "Creating glibc compatibility shims..."
   mkdir -p "$PREFIX/lib"
-  local stub_c="$HOME/.cache/termux-cursor/empty-gnu-compat.c"
+  local stub_c="$HOME/.cache/cursor-termux/empty-gnu-compat.c"
   mkdir -p "$(dirname "$stub_c")"
   cat > "$stub_c" <<'C'
 void __termux_gnu_compat_stub(void) {}

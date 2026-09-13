@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# termux-cursor: Remove Cursor Agent install from Termux
+# cursor-termux: Remove Cursor Agent install from Termux
 # Usage:
 #   bash scripts/uninstall.sh              # keep ~/.cursor + ~/.config/cursor
 #   bash scripts/uninstall.sh --purge-all  # also delete ~/.cursor (not login)
@@ -33,7 +33,7 @@ Usage: bash scripts/uninstall.sh [--purge-all]
 Removes the Termux Cursor Agent install:
   - ~/.local/share/cursor-agent
   - ~/.local/bin/cursor-agent and ~/.local/bin/agent
-  - termux-cursor bashrc PATH block
+  - cursor-termux bashrc PATH block
   - \$TMPDIR/cursor-agent-persist-*
 
 Default: keeps ~/.cursor (chats/plugins) and ~/.config/cursor (CLI login).

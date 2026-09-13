@@ -24,7 +24,7 @@ After an update, the following need to be reapplied:
 ## How to Reapply
 
 ```bash
-cd termux-cursor
+cd cursor-termux
 bash scripts/apply-patches.sh
 ```
 
