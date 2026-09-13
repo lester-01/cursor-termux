@@ -127,6 +127,24 @@ bash scripts/apply-patches.sh
 This replaces the hardcoded `f="/tmp"` persist base with `os.tmpdir()` so
 state lands in `$TMPDIR/cursor-agent-persist-<uid>`.
 
+### First chat / worker claim hangs ~5 minutes (large plugin)
+
+**Cause:** Marketplace plugins pushed as one huge protobuf frame over the
+worker bridge can exceed the server RPC deadline on ~1 Mbps links. Small
+plugins are fine; ~53 MB blobs (e.g. shadcn UI packaged as a full monorepo)
+are not. Same phone can pull 51 MB over public HTTP in ~20 s — the hang is
+bridge/plugin-path specific.
+
+**Details / PC repro / escalation:** [`07-plugin-transfer-hang.md`](07-plugin-transfer-hang.md).  
+**Opt-in frame log:** [`08-bridge-frame-tracing.md`](08-bridge-frame-tracing.md).
+
+### Agent Store: "parent must not be group/world writable: /data"
+
+**Cause (deferred):** Linux Agent Store walks parents of the store path and
+rejects group/other-writable dirs without the sticky bit. On Android, `/data`
+and `/data/data` are normally `0771` — you cannot chmod them. Separate from the
+plugin hang; no bypass ships in this repo yet.
+
 ## Collecting Debug Info
 
 ```bash

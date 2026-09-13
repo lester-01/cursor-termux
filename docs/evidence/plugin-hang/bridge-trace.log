@@ -1,0 +1,12 @@
+Bridge frame transfer trace via CURSOR_TRACE_FRAMES=true instrumentation.
+
+2026-09-06T23:04:37.599Z FRAME_START POST Connect (unknown size)
+2026-09-06T23:10:05.204Z FRAME_END 53359696 bytes in 357.9s (0.14 MB/s)
+2026-09-06T23:10:10.837Z FRAME_START POST Connect (unknown size)
+
+The content-length header is absent on Connect bidi streaming RPCs, so the
+trace shows "(unknown size)" instead of progress markers. The byte counter
+on the 'data' event handler confirmed 53,359,696 bytes received.
+
+The second FRAME_START is the reconnection after the server sent
+controller_disconnected.

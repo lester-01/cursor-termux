@@ -16,11 +16,12 @@ bash scripts/install.sh
 
 # 3. Start a new shell, then login
 hash -r
-NO_OPEN_BROWSER=1 cursor-agent login
+NO_OPEN_BROWSER=1 agent login
+# (legacy name also works: cursor-agent)
 
 # 4. Use it
 cd your-project
-cursor-agent
+agent
 ```
 
 ## What This Solves
@@ -47,13 +48,13 @@ See `docs/` for deep dives into each issue.
 Cursor's worker mode also works:
 
 ```bash
-cursor-agent worker start
+agent worker start
 ```
 
 This required rebuilding `pty.node` (from `node-pty`) and `better_sqlite3.node`
 for Bionic — see `docs/04-worker-fixes.md`.
 
-## After `cursor-agent update`
+## After `agent` / `cursor-agent update`
 
 Updates replace the version directory, wiping our patches. Reapply them:
 
@@ -64,27 +65,47 @@ bash scripts/apply-patches.sh
 This re-symlinks binaries, re-stubs preload, and rebuilds native addons against
 the new version.
 
+## Uninstall
+
+```bash
+# Keep ~/.cursor (chats, auth, plugins)
+bash scripts/uninstall.sh
+
+# Also delete ~/.cursor (backup first if you care about chats)
+mkdir -p ~/backups
+tar -czf ~/backups/cursor-dotcursor-$(date +%Y%m%d).tar.gz -C "$HOME" .cursor
+bash scripts/uninstall.sh --purge-all
+```
+
+If you previously installed another Termux wrapper (npm package, etc.), remove
+that package yourself — uninstall only clears the shared install paths.
+
+## Known issues
+
+- Large marketplace plugins (~tens of MB) can hang on slow links — see
+  [`docs/07-plugin-transfer-hang.md`](docs/07-plugin-transfer-hang.md) and
+  optional bridge tracing in [`docs/08-bridge-frame-tracing.md`](docs/08-bridge-frame-tracing.md).
+- More: [`docs/06-troubleshooting.md`](docs/06-troubleshooting.md).
+
 ## Files
 
 ```
 termux-cursor/
 ├── README.md                # This file
-├── LICENSE                  # MIT
+├── LICENSE                  # MIT (this repo only)
 ├── ACKNOWLEDGMENTS.md       # Credits to bruk, afnan, and others
 ├── scripts/
 │   ├── install.sh           # Fresh install from scratch
-│   └── apply-patches.sh     # Reapply after cursor-agent update
+│   ├── apply-patches.sh     # Reapply after agent update
+│   └── uninstall.sh         # Remove install; --purge-all drops ~/.cursor
 ├── lib/
-│   └── termux-preload.js    # Node.js preload (glibc spoof + stubs)
+│   └── termux-preload.js    # Node.js preload (glibc spoof + stubs + opt-in tracer)
 ├── docs/
-│   ├── 01-why-this-exists.md
-│   ├── 02-how-preload-works.md
-│   ├── 03-rebuilding-native-addons.md
-│   ├── 04-worker-fixes.md
-│   ├── 05-after-update.md
-│   └── 06-troubleshooting.md
-└── bin/
-    └── cursor-agent         # Launcher (created by install.sh)
+│   ├── 01–06 …              # Install / preload / natives / troubleshooting
+│   ├── 07-plugin-transfer-hang.md
+│   ├── 08-bridge-frame-tracing.md
+│   └── evidence/plugin-hang/
+└── ~/.local/bin/{agent,cursor-agent}  # Created by install.sh
 ```
 
 ## Prerequisites
@@ -96,5 +117,6 @@ termux-cursor/
 
 ## License
 
-MIT for the glue code in this repo. Cursor Agent is proprietary software of
-Anysphere / Cursor.
+**MIT** covers **this repository only** (install scripts, Termux preload stubs,
+docs, and evidence notes). It does **not** relicense Cursor Agent itself —
+Cursor Agent remains proprietary software of Anysphere / Cursor.

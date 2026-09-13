@@ -1,0 +1,179 @@
+{
+  "handoverUtc": "2026-09-06T20:30:00Z",
+  "purpose": "On-disk facts for the next cloud chat after this worker stops. Prior chat cannot resume.",
+  "host": {
+    "kind": "cursor-private-worker-termux",
+    "device": "Android phone (Termux ARM64)",
+    "codename": "[redacted]",
+    "os": "Android / Termux 0.118.3",
+    "kernel": "4.19.191-g6215d3010025",
+    "arch": "aarch64",
+    "hostname": "localhost",
+    "user": "[redacted]",
+    "agent": "cursor-agent 2026.09.02-c22c1a3",
+    "sharedAssignmentAllowed": true,
+    "environment": null,
+    "git": false
+  },
+  "hang": {
+    "userVisible": "First prompt of every NEW cloud chat waits ~5 minutes before tools run while shadcn (6948) is enabled and 6948 .installed is missing. Follow-ups on the same bcId are fast. With shadcn disabled, a new chat replied in 26s and never probed 6948.",
+    "cause": "Cloud unary WriteBinaryFile of marketplace plugin 6948 (shadcn) 51MB tar.gz over the worker bridge because 6948 .installed is missing. Debug logs the write only after the full request is in memory. Received frame / frameCount do not increment during receive.",
+    "notCause": [
+      "hostname / Shell itself",
+      "Agent Store (agentStoreActive false is non-fatal)",
+      "environment.json (environment is null)",
+      "having the tar already on disk"
+    ],
+    "approxRateKBps": 190,
+    "httpSamePhone": {
+      "cloudflare51MBSeconds": 19.68,
+      "cloudflareKiBps": 2648,
+      "githubArchiveBytes": 29620881,
+      "githubArchiveSeconds": 11.17,
+      "bridgeVsHttp": "about 14x slower"
+    },
+    "blobIsFullMonorepo": true,
+    "blobMemberCount": 9940,
+    "blobUncompressedBytes": 102223585,
+    "extractNeverRan": true,
+    "blobMd5": "aadfc7fd64bd19f6b302c3f5df7bebb9",
+    "blobSha256": "4b1a014d850b13effa4ad4575a9b064cfdf775bb3fbacfb49a2e552e92252acf",
+    "http2Keepalive": {
+      "pingIntervalMs": 10000,
+      "pingTimeoutMs": 20000
+    }
+  },
+  "baselinesUtcSeconds": [
+    {
+      "run": "incident bc-63dd0778",
+      "claimToWriteOrFail": 301,
+      "notes": "write succeeded then disconnect"
+    },
+    {
+      "run": "warm bc-dbc8969b",
+      "claimToWriteOrFail": 290,
+      "notes": "tar already present; still rewritten same md5"
+    },
+    {
+      "run": "cold bc-db7e9009",
+      "claimToWriteOrFail": 249,
+      "notes": "6948 stashed; PING timed out; no writeBinaryFile log"
+    },
+    {
+      "run": "analysis bc-579a8e08 then concurrent bc-ac32062a",
+      "claimToWriteOrFail": 285,
+      "notes": "two overlapping 51MB pushes; sharedAssignmentAllowed"
+    },
+    {
+      "run": "same-worker new chat bc-f62b43d1 (no restart)",
+      "claimToWriteOrFail": 273.8,
+      "notes": "user-visible 310s; tar mtime 20:40:11Z same md5; ~36s after write is reconnect; verbose stdout not teed"
+    },
+    {
+      "run": "shadcn disabled bc-01a5d697 (no restart)",
+      "claimToWriteOrFail": null,
+      "userVisibleSeconds": 26,
+      "notes": "no 6948 probe; tar mtime unchanged; manifest plugins 406+652 only; artifactDigest==.installed"
+    }
+  ],
+  "plugins": {
+    "notWorkerMandatory": true,
+    "workerStartsSkillCount": 0,
+    "accountEnabled": [
+      "context7/406",
+      "supabase/652",
+      "shadcn/6948"
+    ],
+    "406": {
+      "dir": "~/.cursor/plugins/cache/cursor-public/406/58a36cea87ea887e7bb4850409f1f9ea58dae5e5/",
+      "installed": "e9fed824ec1f17872439ba03ca3c4388",
+      "installedPath": "~/.cursor/plugins/cache/cursor-public/406/58a36cea87ea887e7bb4850409f1f9ea58dae5e5.installed"
+    },
+    "652": {
+      "dir": "~/.cursor/plugins/cache/cursor-public/652/release_v0.1.4/",
+      "installed": "dd6719d9059d680394061cb59d88ad38",
+      "installedPath": "~/.cursor/plugins/cache/cursor-public/652/release_v0.1.4.installed"
+    },
+    "6948": {
+      "dir": "~/.cursor/plugins/cache/cursor-public/6948/10f1717a3e2a3c16cfbd43877c1e44063d9d749a/",
+      "extractDirEmpty": true,
+      "installed": null,
+      "tarGz": "~/.cursor/plugins/cache/cursor-public/6948/10f1717a3e2a3c16cfbd43877c1e44063d9d749a.tar.gz",
+      "olderFullExtract": "~/.cursor/plugins/cache/cursor-public/shadcn/10f1717a3e2a3c16cfbd43877c1e44063d9d749a/"
+    },
+    "manifest": {
+      "path": "~/.cursor/plugins/cache/.cloud-plugin-manifest.json",
+      "plugins": [],
+      "manifestDigest": "e3b0c44298fc1c149afbf4c8996fb924",
+      "manifestDigestMeaning": "MD5 of empty string"
+    }
+  },
+  "installedFile": {
+    "format": "32 ASCII hex bytes, no newline",
+    "writtenBy": "cloud WriteTextFile (logs path only, never content)",
+    "readBy": "ReadTextFile; ENOENT -> gRPC NotFound -> install; present -> full content returned",
+    "doNotCreateDummy": true,
+    "dummyEmptyWould": "stop ENOENT but content empty likely fails hash compare and re-pushes 51MB",
+    "notMd5Of": [
+      "github release tarballs",
+      "extracted trees",
+      "plugin.json",
+      "names",
+      "directory SHAs"
+    ],
+    "equalsManifestArtifactDigest": true,
+    "unprovenGuessFor6948": "MD5 of Cursor packaged tar; blob md5 aadfc7fd64bd19f6b302c3f5df7bebb9"
+  },
+  "rpc": {
+    "source": "8606.index.js",
+    "oneMultiplexedFrameStream": true,
+    "ackIsResponseWithSameId": true,
+    "ackNotLogged": true,
+    "writeBinaryFileUnary": true,
+    "execTarServerStreaming": true,
+    "headOfLineOn51MBRequest": true
+  },
+  "agentStore": {
+    "active": false,
+    "reason": "/data is 0771 on Android",
+    "fatal": false,
+    "bypassApplied": false,
+    "note": "Deferred; see docs/06-troubleshooting.md"
+  },
+  "doNotDoYet": [
+    "dummy 6948 .installed",
+    "local extract + marker",
+    "Agent Store lstat mask",
+    "disable shadcn in Cursor Settings on the same run as the timing test"
+  ],
+  "nextRun": {
+    "prompt": "What host am I running on?",
+    "waitAtLeastMinutesIfQuiet": 6,
+    "note": "Re-run with CURSOR_TRACE_FRAMES=true; see docs/08-bridge-frame-tracing.md"
+  },
+  "trace_proven_transfer": {
+    "frame_bytes": 53359696,
+    "frame_mb": 50.9,
+    "duration_seconds": 357.9,
+    "rate_mbps": 1.1,
+    "rate_kbps": 143,
+    "timestamp_utc_start": "2026-09-06T23:04:37.599Z",
+    "timestamp_utc_end": "2026-09-06T23:10:05.204Z",
+    "content_length_header": "absent (bidi stream)",
+    "instrumentation": "CURSOR_TRACE_FRAMES=true via http2.connect patch in termux-preload.js"
+  },
+  "root_cause": {
+    "cause": "Slow network transfer of 53MB shadcn plugin (143 KB/s) causes server-side RPC deadline to fire, aborting plugin install before .installed is written",
+    "transfer_is_bottleneck": true,
+    "server_disconnects_after_write": true,
+    "installed_never_written": true,
+    "every_new_chat_redownloads": true,
+    "candidate_fixes": [
+      "pre-create .installed marker file",
+      "VM test to confirm network vs proxy bottleneck",
+      "report to Cursor: chunk plugin payload / increase bootstrap timeout / respect .installed"
+    ]
+  },
+  "_sanitized": true,
+  "_source": "termux-worker-hang-2026-09-06 (sanitized for termux-cursor)"
+}

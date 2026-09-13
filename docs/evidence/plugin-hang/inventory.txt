@@ -1,0 +1,17 @@
+# Plugin cache inventory (lab snapshot 2026-09-06) — sizes only
+
+## cursor-public plugin dirs (approx)
+53K   406 (Context7)
+204K  652 (Supabase)
+51M   6948 (shadcn UI marketplace blob)
+49K   context7-plugin/
+122M  shadcn/ (extracted monorepo tree when present)
+200K  supabase/
+
+## tarball
+~51M  6948/…/10f1717a….tar.gz
+
+## .installed markers present
+406/…58a36cea….installed   (32 bytes)
+652/release_v0.1.4.installed (32 bytes)
+6948: none (hang path)
