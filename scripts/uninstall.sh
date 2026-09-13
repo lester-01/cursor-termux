@@ -1,8 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # termux-cursor: Remove Cursor Agent install from Termux
 # Usage:
-#   bash scripts/uninstall.sh              # keep ~/.cursor (chats, auth, plugins)
-#   bash scripts/uninstall.sh --purge-all  # also delete ~/.cursor
+#   bash scripts/uninstall.sh              # keep ~/.cursor + ~/.config/cursor
+#   bash scripts/uninstall.sh --purge-all  # also delete ~/.cursor (not login)
 set -euo pipefail
 
 HOME="${HOME:-/data/data/com.termux/files/home}"
@@ -36,8 +36,8 @@ Removes the Termux Cursor Agent install:
   - termux-cursor bashrc PATH block
   - \$TMPDIR/cursor-agent-persist-*
 
-Default: keeps ~/.cursor (chats, auth, plugins).
-  --purge-all   also deletes ~/.cursor (irreversible without a backup)
+Default: keeps ~/.cursor (chats/plugins) and ~/.config/cursor (CLI login).
+  --purge-all   also deletes ~/.cursor (not ~/.config/cursor/auth.json)
 
 If you previously installed another Termux wrapper (npm package, etc.),
 uninstall that yourself — this script only removes the shared install paths.
@@ -85,7 +85,8 @@ if [[ "$PURGE_ALL" -eq 1 ]]; then
     warn "~/.cursor already absent"
   fi
 else
-  warn "Kept ${HOME}/.cursor (chats/auth/plugins). Use --purge-all to delete it."
+  warn "Kept ${HOME}/.cursor (chats/plugins). Use --purge-all to delete it."
+  warn "Login stays in ${HOME}/.config/cursor (not removed by this script)."
   warn "Tip: tar -czf ~/backups/cursor-dotcursor-\$(date +%Y%m%d).tar.gz -C \"\$HOME\" .cursor"
 fi
 

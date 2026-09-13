@@ -1,44 +1,42 @@
-# Reference Device Specification
+# Reference device specification
 
-This document records the device on which this repo's `install.sh` was last
-tested end-to-end (fresh install → patch → smoke → login → usage).
+Device used for the latest end-to-end fresh install of this repo
+(install → patches → smoke → login → usage).
 
-## Tested Device (latest fresh install)
+## Tested device (latest fresh install)
 
 | Field | Value |
 |-------|-------|
-| **Manufacturer** | `Xiaomi` |
+| **Manufacturer** | Xiaomi |
 | **Model** | `2303CRA44A` (Redmi Pad SE) |
 | **Product name** | `ocean_global` |
-| **Android version** | `14` |
-| **API level (SDK)** | `34` |
+| **Android version** | 14 |
+| **API level (SDK)** | 34 |
 | **Kernel** | `4.19.191-g6215d3010025` |
-| **Kernel build date** | `Wed Feb 19 13:30:52 CST 2025` |
-| **Architecture** | `aarch64` (ARM64) |
-| **Termux** | F-Droid build |
-| **Node.js** | `$(node -v)` (LTS via `nodejs-lts`) |
-| **Install date** | `$(date +%Y-%m-%d)` |
+| **Kernel build date** | Wed Feb 19 13:30:52 CST 2025 |
+| **Architecture** | aarch64 (ARM64) |
+| **Termux** | F-Droid |
+| **Node.js** | v24.18.0 (`nodejs-lts`) |
+| **Agent version** | `2026.09.10-fd3934a` |
+| **Install date** | 2026-09-13 |
 
 ## Why this matters
 
 Cursor Agent ships native binaries for `linux/arm64` (glibc). Termux uses
-Bionic (Android's libc). The patches in this repo compensate for that gap,
-but **kernel version, Android API level, and available syscalls** can affect
-whether rebuilt native addons (`node-pty`, `better-sqlite3`, `sqlite3`)
-compile and run correctly.
+Bionic. Patches in this repo bridge that gap, but **kernel version, Android API
+level, and available syscalls** still affect whether rebuilt addons
+(`node-pty`, `better-sqlite3`, `sqlite3`) compile and run.
 
-Older kernels (e.g. < 4.19) or 32-bit ARM (`armv7l`) are **not** tested and
-may require additional work.
+Older kernels (e.g. &lt; 4.19) or 32-bit ARM (`armv7l`) are **not** tested.
 
-## Reporting issues — what to include
+## Reporting issues
 
-If `install.sh` or `apply-patches.sh` does not work on your device, open a
-bug report using the template at
-`.github/ISSUE_TEMPLATE/bug-report.md`.  The template asks for the same
-fields above — please run every command and paste the **full** output.
+If `install.sh` or `apply-patches.sh` fails on your device, open a bug with
+[`.github/ISSUE_TEMPLATE/bug-report.md`](../.github/ISSUE_TEMPLATE/bug-report.md)
+and paste the **full** device-info command output from that template.
 
 ## Previously tested devices
 
 | Date | Model | Android | Kernel | Outcome | Notes |
 |------|-------|---------|--------|---------|-------|
-| $(date +%Y-%m-%d) | Redmi Pad SE (2303CRA44A) | 14 | 4.19.191 | ✅ Working | Fresh install with --purge-all |
+| 2026-09-13 | Redmi Pad SE (`2303CRA44A`) | 14 | 4.19.191 | Working | Fresh install via this repo’s installer |

@@ -1,14 +1,16 @@
 # =============================================================================
-# termux-cursor: Daily Cursor Agent version check + patch + smoke test
+# termux-cursor: Daily Cursor Agent version check + host-side experiment
 # =============================================================================
-# Runs every day at 06:00 UTC.  If a new version is detected, downloads the
-# tarball, runs our patching pipeline, and smoke-tests the result.
+# Runs daily at 06:00 UTC (and on workflow_dispatch).
 #
-# On success → uploads the patched version as a release artifact (keeps last 3).
-# On failure → leaves a failed-check annotation (no alert noise).
-#
-# Badges in README reflect the latest workflow run and the last-known-good
-# version.
+# REALITY CHECK:
+# - Runner is ubuntu-latest (x86_64), NOT Termux/Bionic ARM64.
+# - Rebuilt *.node addons here are NOT device-ready Termux binaries.
+# - versions-cache/ is gitignored and not restored via actions/cache, so it
+#   does not persist "last 3 versions" across runs.
+# - Useful today mainly as: upstream version probe + experimental artifact
+#   upload. Authoritative install path remains scripts/install.sh on device.
+# See docs/09-versioning-and-artifacts.md.
 # =============================================================================
 name: daily-version-check
 

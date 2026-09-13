@@ -1,99 +1,59 @@
-# Versioning Strategy & Release Artifacts
+# Versioning strategy & release artifacts
 
 ## Why
 
-Cursor Agent updates can break our Termux patches (new native addon, changed
-module layout, updated Merkle/glibc detection). When that happens, users are
-left without a working agent until we push a fix.
+Cursor Agent updates can break Termux patches (new native addons, layout
+changes, Merkle/glibc detection). Users need a clear rollback story when that
+happens.
 
-This document describes how we **keep last-known-working versions** so users
-always have a fallback, and how CI automates the detection → patch → publish
-pipeline.
+## What is implemented today
 
-## Lifecycle of a version
+Checked in: [`.github/workflows/daily-check.yml`](../.github/workflows/daily-check.yml).
 
-```
-Upstream release
-      │
-      ▼
-CI detects new version (daily cron @ 06:00 UTC)
-      │
-      ▼
-CI downloads → applies patches → smoke tests
-      │
-      ├── ✅ PASS → publish as GitHub Release + cache (up to 3 versions)
-      │
-      └── ❌ FAIL → human reviews, may mark previous version as
-                     "✅ human-verified" (gold badge)
-```
+It **can**:
 
-## Cached versions
+- Run on a schedule (`0 6 * * *`) or `workflow_dispatch`
+- Scrape an upstream version string from Cursor’s install script
+- Download the arm64 agent tarball
+- Attempt JS patches + a host-side `node-gyp` rebuild
+- Upload a GitHub Actions artifact and attempt a `gh release` tarball
 
-The repo's CI caches **at most 3 most recent** patched versions in the
-`versions-cache/` directory (GitHub Actions workspace). Each version is also
-uploaded as a **release artifact** on GitHub Releases.
+## Hard limits (do not oversell)
 
-| Artifact | Format | Retention |
-|----------|--------|-----------|
-| CI workflow artifact | Directory of `index.js` + `*.node` + stubs | 90 days (GitHub max) |
-| GitHub Release tarball | `termux-cursor-<YYYY.MM.DD-commit>.tar.gz` | Permanent |
+| Claim in older drafts | Reality |
+|-----------------------|---------|
+| “CI produces Termux-ready binaries” | **No.** Job runs on **Ubuntu x86_64**. Rebuilt `.node` files are not Bionic/Android ARM64 device builds. |
+| “`versions-cache/` keeps last 3 forever” | **No.** That directory is **gitignored** and is **not** restored with `actions/cache`, so it is empty at the start of every run. |
+| “Badge auto-updates” | **Not automated.** README badges are static unless you edit them. |
+| “Ship full agent in git” | **Don’t.** Tree is ~**387 MB** installed / ~**131 MB** gzip on this device; also **proprietary** — use GitHub **Releases** only if Cursor’s terms allow redistribution, and prefer **on-device** `install.sh` as source of truth. |
 
-## Badges
+**Reliable path today:** run `bash scripts/install.sh` (or `apply-patches.sh`) on the phone. Treat CI/Releases as experimental until a human downloads an artifact and verifies it on Termux.
 
-We use shields.io-style badges in the README:
+## Recommended future CI (if you invest)
 
-| Badge | Meaning |
-|-------|---------|
-| ![CI](https://img.shields.io/badge/CI-daily--check-blue) | Workflow status (pass/fail) |
-| ![Latest](https://img.shields.io/badge/latest-YYYY.MM.DD--sha-green) | Most recent patched version |
-| ![Cached](https://img.shields.io/badge/cached-3-brightgreen) | Number of cached versions |
-| ![Verified](https://img.shields.io/badge/verified-YYYY.MM.DD--sha-gold) | Human-reviewed working version |
-| ![Broken](https://img.shields.io/badge/latest-YYYY.MM.DD--sha-red) | Latest CI build failed |
+1. Keep daily **version detect** + notify (issue/discussion) when upstream moves.
+2. Optionally upload the **unmodified** upstream tarball hash/URL for reproducibility (not a redistributed binary, if ToS is unclear).
+3. For real Termux artifacts: build on **device** or a **Bionic/Android ARM64** runner, then `gh release upload` a tarball produced there.
+4. Add `actions/cache` only if you intentionally want host-side scratch between runs — still not a device build.
 
-These are updated by the CI workflow after each run (or manually for the
-"human-verified" badge).
+## Launcher names
 
-## Human-verified badge
+| Name | Role |
+|------|------|
+| `agent` | Primary launcher (symlink) |
+| `cursor-agent` | Legacy name |
+| `termux-cursor` | This repository |
 
-When a human has confirmed a specific version works on a real device, the
-badge is updated manually (via a PR or direct push). The device details for
-that verification are recorded in `docs/10-device-spec.md`.
+## Rollback (device)
 
-## Binary naming
+1. If you kept a known-good version directory under
+   `~/.local/share/cursor-agent/versions/<ver>/`, point the launcher at it again
+   (or reinstall that version with `install.sh` once the script supports pinning).
+2. If a GitHub Release tarball was **human-verified on Termux**, extract into
+   `versions/<ver>/` and run `bash scripts/apply-patches.sh`.
+3. Repo owner for `gh` commands: `lester-01/termux-cursor`.
 
-| Name | Type | Created by |
-|------|------|------------|
-| `agent` | Primary launcher | `install.sh` / `apply-patches.sh` |
-| `cursor-agent` | Legacy symlink → `agent` | `install.sh` / `apply-patches.sh` |
-| `termux-cursor` | Repo / project name | — |
+## Human-verified versions
 
-The npm ecosystem already has:
-- `cursor-termux` (Afnanksalal) — upstream original
-- `bruk-cursor-termux` (Bruk) — fork with tree-sitter stubs
-
-To avoid collision, this repo uses **`termux-cursor`** as its package/brand
-name (matching the GitHub repo). If published to npm it would be
-`@prinxlexter/termux-cursor` or scoped similarly.
-
-## Release naming convention
-
-```
-termux-cursor-<YYYY.MM.DD-commit>.tar.gz
-```
-
-Example: `termux-cursor-2026.09.10-fd3934a.tar.gz`
-
-## Rollback procedure
-
-1. List available releases:
-   ```bash
-   gh release list --repo prinxlexter/termux-cursor
-   ```
-2. Download the last known working version:
-   ```bash
-   gh release download v2026.09.02-c22c1a3 --repo prinxlexter/termux-cursor
-   tar -xzf termux-cursor-2026.09.02-c22c1a3.tar.gz \
-     -C ~/.local/share/cursor-agent/versions/2026.09.02-c22c1a3/
-   bash scripts/apply-patches.sh
-   ```
-3. Or re-run the playbook using the cached artifact directly.
+When a version is confirmed on hardware, record it in
+[`10-device-spec.md`](10-device-spec.md) and optionally bump the README agent badge.
