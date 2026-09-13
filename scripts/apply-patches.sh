@@ -136,6 +136,7 @@ set -euo pipefail
 PREFIX="\${PREFIX:-/data/data/com.termux/files/usr}"
 HOME="\${HOME:-/data/data/com.termux/files/home}"
 VERSION_DIR="${VERSION_DIR}"
+export CURSOR_INVOKED_AS="\$(basename "\$0")"
 [[ -f "\${VERSION_DIR}/index.js" ]] || { echo "cursor-agent: missing tree" >&2; exit 1; }
 export CURSOR_AGENT_VERSION_DIR="\${VERSION_DIR}"
 export NODE_PATH="\${VERSION_DIR}/node_modules\${NODE_PATH:+:\${NODE_PATH}}"
@@ -146,7 +147,8 @@ case "\${NODE_OPTIONS:-}" in *termux-preload.js*) ;; *) export NODE_OPTIONS="--r
 exec "\${PREFIX}/bin/node" -r "\${PRELOAD}" "\${VERSION_DIR}/index.js" "\$@"
 LAUNCHEREOF
   chmod +x "$LAUNCHER"
-  ok "Launcher updated"
+  ln -sfn cursor-agent "${BIN_DIR}/agent"
+  ok "Launcher updated (cursor-agent + agent)"
 }
 
 main() {
@@ -162,7 +164,8 @@ main() {
   install_preload_and_launcher
   export PATH="$BIN_DIR:$PATH"
   env -u LD_LIBRARY_PATH "$LAUNCHER" --help >/dev/null 2>&1 && ok "cursor-agent --help works" || warn "check manually"
-  ok "Patches reapplied. hash -r && cursor-agent about"
+  env -u LD_LIBRARY_PATH "${BIN_DIR}/agent" --help >/dev/null 2>&1 && ok "agent --help works" || warn "agent check manually"
+  ok "Patches reapplied. hash -r && agent about"
 }
 
 main "$@"

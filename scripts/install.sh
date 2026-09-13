@@ -60,7 +60,7 @@ cleanup_previous() {
 
   rm -f "${INSTALL_ROOT}/termux-preload.js" 2>/dev/null || true
   rm -rf "${INSTALL_ROOT}/versions" 2>/dev/null || true
-  [[ -L "$LAUNCHER" || -f "$LAUNCHER" ]] && rm -f "$LAUNCHER"
+  rm -f "$LAUNCHER" "${BIN_DIR}/agent"
 
   # Remove old bashrc block
   if [[ -f "${HOME}/.bashrc" ]] && grep -q '# --- cursor-termux ---' "${HOME}/.bashrc" 2>/dev/null; then
@@ -288,6 +288,8 @@ set -euo pipefail
 PREFIX="\${PREFIX:-/data/data/com.termux/files/usr}"
 HOME="\${HOME:-/data/data/com.termux/files/home}"
 VERSION_DIR="${VERSION_DIR}"
+# Match official package script: report how we were invoked (agent vs cursor-agent).
+export CURSOR_INVOKED_AS="\$(basename "\$0")"
 if [[ ! -f "\${VERSION_DIR}/index.js" ]]; then
   echo "cursor-agent: missing agent tree at \${VERSION_DIR}" >&2
   echo "Run: bash <dir>/scripts/install.sh" >&2
@@ -306,6 +308,8 @@ esac
 exec "\${PREFIX}/bin/node" -r "\${PRELOAD}" "\${VERSION_DIR}/index.js" "\$@"
 LAUNCHEREOF
   chmod +x "$LAUNCHER"
+  # Official install creates both names; agent is primary, cursor-agent is legacy.
+  ln -sfn cursor-agent "${BIN_DIR}/agent"
 
   # Add PATH to bashrc (LD_LIBRARY_PATH is NOT exported here — only in launcher)
   local marker_begin="# --- cursor-termux ---"
@@ -325,6 +329,7 @@ ${marker_end}
 BASHRC
 
   ok "Launcher: $LAUNCHER"
+  ok "Symlink: ${BIN_DIR}/agent -> cursor-agent"
   ok "Preload: $PRELOAD_DST"
 }
 
@@ -334,6 +339,9 @@ smoke_test() {
   env -u LD_LIBRARY_PATH "$LAUNCHER" --help >/dev/null 2>&1 || \
     warn "cursor-agent --help had issues; check manually"
   ok "cursor-agent --help works"
+  env -u LD_LIBRARY_PATH "${BIN_DIR}/agent" --help >/dev/null 2>&1 || \
+    warn "agent --help had issues; check manually"
+  ok "agent --help works"
 }
 
 main() {
@@ -357,16 +365,17 @@ main() {
 $(ok "Cursor Agent ready on Termux!")
 
   hash -r
-  cursor-agent about
-  NO_OPEN_BROWSER=1 cursor-agent login
+  agent about
+  # (legacy name also works: cursor-agent)
+  NO_OPEN_BROWSER=1 agent login
 
   # In a project directory:
-  cursor-agent
+  agent
 
   # Worker mode:
-  cursor-agent worker start
+  agent worker start
 
-After cursor-agent update, reapply patches:
+After agent update, reapply patches:
   bash scripts/apply-patches.sh
 
 MSG
