@@ -1,5 +1,11 @@
 # termux-cursor
 
+[![CI](https://img.shields.io/badge/CI-daily--check-blue)](.github/workflows/daily-check.yml)
+[![Latest](https://img.shields.io/badge/latest-2026.09.02--c22c1a3-green)]()
+[![Cached](https://img.shields.io/badge/cached-3-brightgreen)]()
+[![Verified](https://img.shields.io/badge/verified-pending-gold)]()
+[![License](https://img.shields.io/badge/license-MIT-purple)](LICENSE)
+
 Run **Cursor Agent CLI** natively on **Termux (Android ARM64)** — no proot, no
 container, no glibc shenanigans.
 
@@ -17,7 +23,6 @@ bash scripts/install.sh
 # 3. Start a new shell, then login
 hash -r
 NO_OPEN_BROWSER=1 agent login
-# (legacy name also works: cursor-agent)
 
 # 4. Use it
 cd your-project
@@ -41,8 +46,6 @@ This installer:
 5. **Spoofs** glibc detection so the agent loader takes the correct path
 6. **Installs** a durable launcher + bashrc integration
 
-See `docs/` for deep dives into each issue.
-
 ## Worker Mode
 
 Cursor's worker mode also works:
@@ -52,7 +55,7 @@ agent worker start
 ```
 
 This required rebuilding `pty.node` (from `node-pty`) and `better_sqlite3.node`
-for Bionic — see `docs/04-worker-fixes.md`.
+for Bionic — see [`docs/04-worker-fixes.md`](docs/04-worker-fixes.md).
 
 ## After `agent` / `cursor-agent update`
 
@@ -62,8 +65,26 @@ Updates replace the version directory, wiping our patches. Reapply them:
 bash scripts/apply-patches.sh
 ```
 
-This re-symlinks binaries, re-stubs preload, and rebuilds native addons against
-the new version.
+## Fresh install (manual cutover)
+
+Step-by-step (backup → drop bruk/npm wrappers → uninstall → install → checks):
+see [`scripts/fresh-install-playbook.sh`](scripts/fresh-install-playbook.sh)
+(commented; you run the commands).
+
+## CI & Version Caching
+
+A [daily GitHub Action](.github/workflows/daily-check.yml) checks for upstream
+Cursor Agent updates at 06:00 UTC. When a new version is found:
+
+1. Downloads and patches the tarball
+2. Smoke-tests the result
+3. Uploads the patched version as a release artifact (keeps last **3** versions)
+
+This means even if an update breaks our patcher, users can fall back to a
+**last-known-working version** from the Releases page.
+
+See [`docs/09-versioning-and-artifacts.md`](docs/09-versioning-and-artifacts.md)
+for the full strategy.
 
 ## Uninstall
 
@@ -71,14 +92,22 @@ the new version.
 # Keep ~/.cursor (chats, auth, plugins)
 bash scripts/uninstall.sh
 
-# Also delete ~/.cursor (backup first if you care about chats)
+# Also delete ~/.cursor (backup first!)
 mkdir -p ~/backups
 tar -czf ~/backups/cursor-dotcursor-$(date +%Y%m%d).tar.gz -C "$HOME" .cursor
 bash scripts/uninstall.sh --purge-all
 ```
 
-If you previously installed another Termux wrapper (npm package, etc.), remove
-that package yourself — uninstall only clears the shared install paths.
+## Reporting Issues
+
+If something doesn't work on your device, please open a bug report using the
+[template](.github/ISSUE_TEMPLATE/bug-report.md). It asks for **device
+specifications** (make, model, Android version, kernel) which are essential for
+diagnosis.
+
+The reference device this repo was tested on is documented in
+[`docs/10-device-spec.md`](docs/10-device-spec.md) — if your device differs,
+we need those details to help.
 
 ## Known issues
 
@@ -97,15 +126,29 @@ termux-cursor/
 ├── scripts/
 │   ├── install.sh           # Fresh install from scratch
 │   ├── apply-patches.sh     # Reapply after agent update
-│   └── uninstall.sh         # Remove install; --purge-all drops ~/.cursor
+│   ├── uninstall.sh         # Remove install; --purge-all drops ~/.cursor
+│   └── fresh-install-playbook.sh  # Manual cutover guide
 ├── lib/
-│   └── termux-preload.js    # Node.js preload (glibc spoof + stubs + opt-in tracer)
+│   └── termux-preload.js    # Node.js preload (glibc spoof + stubs + tracer)
 ├── docs/
-│   ├── 01–06 …              # Install / preload / natives / troubleshooting
+│   ├── 01-why-this-exists.md
+│   ├── 02-how-preload-works.md
+│   ├── 03-rebuilding-native-addons.md
+│   ├── 04-worker-fixes.md
+│   ├── 05-after-update.md
+│   ├── 06-troubleshooting.md
 │   ├── 07-plugin-transfer-hang.md
 │   ├── 08-bridge-frame-tracing.md
-│   └── evidence/plugin-hang/
-└── ~/.local/bin/{agent,cursor-agent}  # Created by install.sh
+│   ├── 09-versioning-and-artifacts.md   # ← NEW: CI + caching strategy
+│   ├── 10-device-spec.md                 # ← NEW: reference device details
+│   └── evidence/
+├── .github/
+│   ├── workflows/
+│   │   └── daily-check.yml              # ← NEW: automated version check
+│   └── ISSUE_TEMPLATE/
+│       └── bug-report.md                # ← NEW: structured bug reports
+├── bin/                   # (reserved)
+└── artifacts/             # Historical preload snapshots
 ```
 
 ## Prerequisites
