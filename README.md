@@ -7,6 +7,10 @@
 **Cursor Agent CLI on your phone** — native Termux (Android ARM64), no proot,
 no container, no glibc chroot.
 
+This repo was previously named
+[termux-cursor](https://github.com/lester-01/termux-cursor); use
+`cursor-termux` for new clones.
+
 <p align="center">
   <img src="docs/images/cursor_running_on_android.jpg" alt="Cursor Agent about on Termux Android — logged in, Pro, android arm64" width="420" />
 </p>
